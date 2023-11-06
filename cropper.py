@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 from shapely.geometry import Polygon
 from sklearn.cluster import AgglomerativeClustering
+from collections import defaultdict
 
 PROCESS_RES = (480, 480)
 GAUSSIAN_K_SIZE = (5, 5)
@@ -9,7 +10,7 @@ CANNY_LOWER = 100
 CANNY_UPPER = 200
 STRUCTURE_ELEMENT_SIZE = (3, 3) #(7, 7)
 MIN_CONTOUR_AREA = 10
-DISTANCE_THRESHOLD_SCALE = 0.2
+DISTANCE_THRESHOLD_SCALE = 0.16
 
 def centerAndCropImage(image):
     # Read in image and get size info
@@ -109,12 +110,14 @@ def centerAndCropImage(image):
     def filterContours(contours, contours_areas, percentile):
         area_threshold = np.percentile(contours_areas, percentile)
         kept_contours = []
+        kept_contours_areas = []
         for i in range(len(contours)):
             if contours_areas[i] > area_threshold:
                 kept_contours.append(contours[i])
-        return kept_contours
+                kept_contours_areas.append(contours_areas[i])
+        return kept_contours, kept_contours_areas
     
-    contours = filterContours(contours, kept_contours_areas, 25)
+    contours, contours_areas = filterContours(contours, kept_contours_areas, 25)
     print("len(contours) after filter", len(contours))
     cv.imshow("gray", img_gray)
     cv.imshow("contours", cv.drawContours(img_gray, contours, -1, (0, 255, 0), 3))
@@ -176,13 +179,37 @@ def centerAndCropImage(image):
         return max_size_idx
     
     # Method 2: find the best cluster by considering total area in the cluster's contours
-    def findBestClusterByArea(clusters):
-        cluster_total_areas = [sum(clusters[cluster_id]) for cluster_id in clusters]
-        max_area_idx = cluster_total_areas.index(max(cluster_total_areas))
+    def findBestClusterByArea(contours):
+        cluster_total_areas = defaultdict(int)
+        max_area = 0
+        max_area_idx = 0
+        print(len(contours))
+        print(len(contours_areas))
+        print(len(labels))
+        for i in range(len(contours)):
+            contour = contours[i]
+            contour_area = contours_areas[i]
+            contour_label = labels[i]
+            cluster_total_areas[contour_label] += contour_area
+            if cluster_total_areas[contour_label] > max_area:
+                max_area = cluster_total_areas[contour_label]
+                max_area_idx = contour_label
+
+        # for cluster_id in clusters:
+        #     clusters_at_id = clusters[cluster_id]
+        #     cluster_total_area = 0
+        #     for i in range(len(clusters_at_id)):
+        #         contour = [list(point[0]) for point in contours[i]]
+        #         contour_polygon = Polygon(contour)
+        #         cluster_total_area += contour_polygon.area
+        #     cluster_total_areas.append(cluster_total_area)
+
+        # max_area_idx = list(cluster_total_areas.values()).index(max(cluster_total_areas.values()))
+        print("cluster_total_areas", cluster_total_areas)
         return max_area_idx
     
     max_size_idx = findBestCluster(clusters)
-    max_area_idx = findBestClusterByArea(clusters)
+    max_area_idx = findBestClusterByArea(contours)
     # best_cluster_centroid = cluster_centroids[max_size_idx]
     best_cluster_centroid = cluster_centroids[max_area_idx]
     print("max_size_idx", max_size_idx)
@@ -253,6 +280,7 @@ def centerAndCropImage(image):
 # image = "sausage.jfif"
 # image = "ice_cream_roll.JPG"
 # image = "taro_balls.jpg"
+# centerAndCropImage(image)
 
 for image in ["taiwan_map.png", "taiwan_chicken.jpg", "oyster_omelet.jpg", "ice_cream_roll.JPG", "taro_balls.jpg"]:
     centerAndCropImage(image)
