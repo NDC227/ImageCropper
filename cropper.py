@@ -3,14 +3,16 @@ import numpy as np
 from shapely.geometry import Polygon
 from sklearn.cluster import AgglomerativeClustering
 from collections import defaultdict
+from pathlib import Path
 
 PROCESS_RES = (480, 480)
-GAUSSIAN_K_SIZE = (5, 5)
+GAUSSIAN_K_SIZE = (3, 3)
 CANNY_LOWER = 100
 CANNY_UPPER = 200
 STRUCTURE_ELEMENT_SIZE = (3, 3) #(7, 7)
-MIN_CONTOUR_AREA = 10
+MIN_CONTOUR_AREA = 0
 DISTANCE_THRESHOLD_SCALE = 0.16
+AREA_PERCENTILE_THRESH = 40
 
 def centerAndCropImage(image):
     # Read in image and get size info
@@ -74,7 +76,7 @@ def centerAndCropImage(image):
     # k = cv.waitKey(0)
     # quit(0)
 
-    # Get the contours given a processed image (eg. Canny edges) and filter out small contours
+    # Get the contours given a processed image (eg. Canny edges) (and NOT filter out small contours)
     def getContours(img, edges):
         contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
 
@@ -117,7 +119,7 @@ def centerAndCropImage(image):
                 kept_contours_areas.append(contours_areas[i])
         return kept_contours, kept_contours_areas
     
-    contours, contours_areas = filterContours(contours, kept_contours_areas, 25)
+    contours, contours_areas = filterContours(contours, kept_contours_areas, AREA_PERCENTILE_THRESH)
     print("len(contours) after filter", len(contours))
     cv.imshow("gray", img_gray)
     cv.imshow("contours", cv.drawContours(img_gray, contours, -1, (0, 255, 0), 3))
@@ -269,18 +271,20 @@ def centerAndCropImage(image):
     def cropImage(img, x1, x2, y1, y2):
         cropped = img[y1:y2, x1:x2]
         cv.imshow("cropped", cropped)
-        cv.imwrite("cropped/" + image, cropped)
+        cv.imwrite("cropped/" + image.split("/")[-1], cropped)
     
     cropImage(img, x1, x2, y1, y2)
     # cv.imshow("image", img)
     k = cv.waitKey(0)
 
-# image = "taiwan_chicken.jpg"  
+image = "taiwan_chicken.jpg"
 # image = "oyster_omelet.jpg"
 # image = "sausage.jfif"
 # image = "ice_cream_roll.JPG"
 # image = "taro_balls.jpg"
-# centerAndCropImage(image)
+# image = "taiwan_map.png"
+# centerAndCropImage("inputs/" + image)
 
-for image in ["taiwan_map.png", "taiwan_chicken.jpg", "oyster_omelet.jpg", "ice_cream_roll.JPG", "taro_balls.jpg"]:
+images = list(map(str, Path("inputs/").glob("*")))
+for image in images:
     centerAndCropImage(image)
